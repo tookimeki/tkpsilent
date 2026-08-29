@@ -1,42 +1,69 @@
 -- ==========================================
--- TOOKIMEKI SILENT HEADLESS FARM v1 (KRAIT FRAMEWORK)
+-- TOOKIMEKI SILENT FARM v2 (KNIT COMM DIRECT)
 -- ==========================================
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- Mencari folder Knit Remote / Remotes di ReplicatedStorage
-local KnitServices = ReplicatedStorage:FindFirstChild("Packages") and ReplicatedStorage.Packages:FindFirstChild("_Index") 
--- Atau jalur standar Knit
-local servicesFolder = ReplicatedStorage:FindFirstChild("Knit") and ReplicatedStorage.Knit:FindFirstChild("Services")
+print("Memulai Inisialisasi Silent Farm v2...")
 
-print("Memulai Inisialisasi Silent Farm...")
-
--- Fungsi uji coba menembak Remote Knit secara langsung
-local function TriggerCatchSilent()
+-- Fungsi untuk mencari Remote Function Knit (Biasanya di dalam folder Packages atau Knit)
+local function GetKnitRemote(remoteName)
+    local foundRemote = nil
     pcall(function()
-        -- Jalur standar game berbasis Knit
-        local remotes = ReplicatedStorage:FindFirstChild("Remotes", true)
-        if remotes then
-            local beginRemote = remotes:FindFirstChild("BeginCatch")
-            local redeemRemote = remotes:FindFirstChild("RedeemCatch")
-            
-            if beginRemote and redeemRemote then
-                beginRemote:FireServer()
-                task.wait(0.3)
-                redeemRemote:FireServer()
-                print("Sinyal Tangkap Berhasil Dikirim ke Server!")
-            else
-                warn("Remote BeginCatch / RedeemCatch tidak ditemukan di dalam folder Remotes.")
+        for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+            if obj:IsA("RemoteFunction") and obj.Name == remoteName then
+                foundRemote = obj
+                break
             end
         end
     end)
+    return foundRemote
 end
 
--- Jalankan pengulangan otomatis di latar belakang tanpa mengganggu layar
+local beginCatchRF = GetKnitRemote("BeginCatch")
+local redeemCatchRF = GetKnitRemote("RedeemCatch")
+
+if beginCatchRF and redeemCatchRF then
+    print("Berhasil mendeteksi jalur Knit Comm Server!")
+else
+    warn("Jalur Knit Comm belum sepenuhnya dimuat, mencoba mencari ulang...")
+end
+
+-- Loop Otomatis di Latar Belakang (Silent Headless Farm)
 task.spawn(function()
     while true do
-        TriggerCatchSilent()
-        task.wait(3) -- Jeda 3 detik per siklus tembak
+        task.wait(4) -- Jeda antar siklus tangkap agar aman dari deteksi spam server
+        
+        pcall(function()
+            -- Pastikan remote sudah terdeteksi
+            if not beginCatchRF or not redeemCatchRF then
+                beginCatchRF = GetKnitRemote("BeginCatch")
+                redeemCatchRF = GetKnitRemote("RedeemCatch")
+                return
+            end
+            
+            -- 1. Panggil BeginCatch untuk meminta Token & Data Hewan ke Server
+            -- Sesuai struktur Cobalt: InvokeServer tanpa argumen menghasilkan tabel {ok, token, animalName}
+            local success, catchData = pcall(function()
+                return beginCatchRF:InvokeServer()
+            end)
+            
+            if success and catchData and catchData.token then
+                print("Berhasil memicu tangkapan untuk: " .. tostring(catchData.animalName))
+                
+                -- Beri jeda sangat singkat (simulasi proses tangkap gaib)
+                task.wait(0.2)
+                
+                -- 2. Panggil RedeemCatch dengan memasukkan token yang diberikan server dan status true
+                local redeemSuccess, redeemResult = pcall(function()
+                    return redeemCatchRF:InvokeServer(catchData.token, true)
+                end)
+                
+                if redeemSuccess and redeemResult and redeemResult.ok then
+                    print("SUKSES! Item masuk inventori: " .. tostring(redeemResult.message))
+                end
+            end
+        end)
     end
 end)
