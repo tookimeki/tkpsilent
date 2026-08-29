@@ -1,5 +1,5 @@
 -- ==========================================
--- TOOKIMEKI SILENT FARM v5 (TOKEN SYNC ENGINE)
+-- TOOKIMEKI SILENT FARM v6 (AUTO-EQUIP SYNC)
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
@@ -44,7 +44,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(0, 200, 0, 20)
 Title.Position = UDim2.new(0, 35, 0, 10)
 Title.BackgroundTransparency = 1
-Title.Text = "Silent Farm v5 - by tookimeki"
+Title.Text = "Silent Farm v6 - by tookimeki"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
@@ -79,7 +79,6 @@ Separator.BackgroundTransparency = 0.8
 Separator.BorderSizePixel = 0
 Separator.Parent = MainFrame
 
--- Tombol Toggle Utama (ON/OFF)
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.new(1, -30, 0, 40)
 ToggleBtn.Position = UDim2.new(0, 15, 0, 50)
@@ -91,7 +90,6 @@ ToggleBtn.TextSize = 14
 ToggleBtn.Parent = MainFrame
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
 
--- Konsol Log Terminal di dalam GUI
 local LogBox = Instance.new("ScrollingFrame")
 LogBox.Size = UDim2.new(1, -30, 0, 85)
 LogBox.Position = UDim2.new(0, 15, 0, 105)
@@ -105,7 +103,7 @@ local LogText = Instance.new("TextLabel")
 LogText.Size = UDim2.new(1, -10, 1, 0)
 LogText.Position = UDim2.new(0, 5, 0, 0)
 LogText.BackgroundTransparency = 1
-LogText.Text = "[System]: Siap memuat Knit Comm...\n"
+LogText.Text = "[System]: Siap menguji Auto-Equip Sync...\n"
 LogText.TextColor3 = Color3.fromRGB(46, 204, 113)
 LogText.Font = Enum.Font.Code
 LogText.TextSize = 11
@@ -120,7 +118,6 @@ local function Log(msg)
     LogBox.CanvasPosition = Vector2.new(0, LogText.AbsoluteSize.Y)
 end
 
--- Tombol Mengapung (Floating Open Button)
 local OpenBtn = Instance.new("ImageButton")
 OpenBtn.Size = UDim2.new(0, 0, 0, 0) 
 OpenBtn.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -162,7 +159,7 @@ local function MakeDraggable(guiObject)
             local apX, apY = guiObject.AnchorPoint.X, guiObject.AnchorPoint.Y
             local sizeX, sizeY = guiObject.AbsoluteSize.X, guiObject.AbsoluteSize.Y
             local minX, maxX = sizeX * apX, viewport.X - sizeX * (1 - apX)
-            local minY, maxY = sizeY * apY, viewport.Y - sizeY * (1 - apY)
+            local minY, maxY = sizeY * apY, viewport.Y - sizeY * (1 - maxY)
             if viewport.X > 0 and viewport.Y > 0 then
                 targetX = math.clamp(targetX, minX, maxX)
                 targetY = math.clamp(targetY, minY, maxY)
@@ -212,7 +209,7 @@ local function MinimizeGUI()
     OpenBtn.Position = targetPos
     OpenBtn.Size = UDim2.new(0, 0, 0, 0)
     OpenBtn.Visible = true
-    TweenService:Create(OpenBtn, twig or tweenInfo, {Size = UDim2.new(0, 35, 0, 35)}):Play()
+    TweenService:Create(OpenBtn, tweenInfo, {Size = UDim2.new(0, 35, 0, 35)}):Play()
     task.wait(0.3)
     isAnimating = false
 end
@@ -237,7 +234,7 @@ MinBtn.MouseButton1Click:Connect(function() task.spawn(MinimizeGUI) end)
 CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
 -- ==========================================
--- 3. MESIN SILENT FARM v5 (TOKEN SYNC)
+-- 3. MESIN SILENT FARM v6 (AUTO-EQUIP + SYNC)
 -- ==========================================
 local silentFarmActive = false
 
@@ -256,44 +253,64 @@ end
 
 task.spawn(function()
     while true do
-        task.wait(2.5) -- Jeda antar siklus
+        task.wait(2.5)
         
         if silentFarmActive then
             pcall(function()
+                -- A. Paksa Karakter Memegang Jaring Terlebih Dahulu
+                local character = LocalPlayer.Character
+                if character then
+                    local humanoid = character:FindFirstChildOfClass("Humanoid")
+                    local jaring = LocalPlayer.Backpack:FindFirstChild("Jaring") or character:FindFirstChild("Jaring")
+                    if jaring and jaring.Parent ~= character then
+                        if humanoid then 
+                            humanoid:EquipTool(jaring) 
+                            task.wait(0.2)
+                        end
+                    end
+                end
+                
                 local beginCatchRF = GetKnitRemote("BeginCatch")
                 local redeemCatchRF = GetKnitRemote("RedeemCatch")
                 
                 if beginCatchRF and redeemCatchRF then
-                    -- 1. Meminta token validasi ke server
+                    -- B. Panggil BeginCatch dan Tangkap Seluruh Respon Mentah
                     local success, catchData = pcall(function()
                         return beginCatchRF:InvokeServer()
                     end)
                     
-                    if success and catchData and catchData.ok and catchData.token then
-                        Log("Target: " .. tostring(catchData.animalName) .. " [Token OK]")
-                        
-                        -- Beri jeda sangat singkat agar natural di mata server
-                        task.wait(0.1)
-                        
-                        -- 2. Menukarkan token ke server (Sesuai struktur Argumen dari Cobalt)
-                        local redeemSuccess, redeemResult = pcall(function()
-                            return redeemCatchRF:InvokeServer(catchData.token, true)
-                        end)
-                        
-                        if redeemSuccess and redeemResult then
-                            if redeemResult.ok then
-                                Log("SUCCESS: " .. tostring(redeemResult.message))
+                    if success then
+                        if type(catchData) == "table" and catchData.token then
+                            Log("Token OK: " .. tostring(catchData.animalName))
+                            
+                            task.wait(0.1)
+                            
+                            local redeemSuccess, redeemResult = pcall(function()
+                                return redeemCatchRF:InvokeServer(catchData.token, true)
+                            end)
+                            
+                            if redeemSuccess and redeemResult then
+                                if type(redeemResult) == "table" then
+                                    if redeemResult.ok then
+                                        Log("SUCCESS: " .. tostring(redeemResult.message))
+                                    else
+                                        Log("Server Denied: " .. tostring(redeemResult.message))
+                                    end
+                                else
+                                    Log("Redeem Result: " .. tostring(redeemResult))
+                                end
                             else
-                                Log("Server Denied: " .. tostring(redeemResult.message))
+                                Log("Gagal Redeem token ke server.")
                             end
                         else
-                            Log("Gagal mengeksekusi RedeemCatch.")
+                            -- Cetak isi data mentah jika formatnya berbeda
+                            Log("Server Respon: " .. tostring(catchData))
                         end
                     else
-                        Log("Menunggu hewan muncul/Validasi server...")
+                        Log("Invoke BeginCatch Error.")
                     end
                 else
-                    Log("Mencari jalur Knit Comm...")
+                    Log("Mencari Knit Comm...")
                 end
             end)
         end
@@ -306,13 +323,13 @@ ToggleBtn.MouseButton1Click:Connect(function()
         ToggleBtn.Text = "SILENT FARM: ON"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
         StatusDot.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
-        Log("Silent Farm v5 diaktifkan.")
+        Log("Silent Farm v6 diaktifkan.")
     else
         ToggleBtn.Text = "SILENT FARM: OFF"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         StatusDot.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        Log("Silent Farm v5 dimatikan.")
+        Log("Silent Farm v6 dimatikan.")
     end
 end)
 
-print("Tookimeki Silent Farm v5 Berhasil Dimuat!")
+print("Tookimeki Silent Farm v6 Berhasil Dimuat!")
