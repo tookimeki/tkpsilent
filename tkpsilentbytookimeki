@@ -1,0 +1,42 @@
+-- ==========================================
+-- TOOKIMEKI SILENT HEADLESS FARM v1 (KRAIT FRAMEWORK)
+-- ==========================================
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Mencari folder Knit Remote / Remotes di ReplicatedStorage
+local KnitServices = ReplicatedStorage:FindFirstChild("Packages") and ReplicatedStorage.Packages:FindFirstChild("_Index") 
+-- Atau jalur standar Knit
+local servicesFolder = ReplicatedStorage:FindFirstChild("Knit") and ReplicatedStorage.Knit:FindFirstChild("Services")
+
+print("Memulai Inisialisasi Silent Farm...")
+
+-- Fungsi uji coba menembak Remote Knit secara langsung
+local function TriggerCatchSilent()
+    pcall(function()
+        -- Jalur standar game berbasis Knit
+        local remotes = ReplicatedStorage:FindFirstChild("Remotes", true)
+        if remotes then
+            local beginRemote = remotes:FindFirstChild("BeginCatch")
+            local redeemRemote = remotes:FindFirstChild("RedeemCatch")
+            
+            if beginRemote and redeemRemote then
+                beginRemote:FireServer()
+                task.wait(0.3)
+                redeemRemote:FireServer()
+                print("Sinyal Tangkap Berhasil Dikirim ke Server!")
+            else
+                warn("Remote BeginCatch / RedeemCatch tidak ditemukan di dalam folder Remotes.")
+            end
+        end
+    end)
+end
+
+-- Jalankan pengulangan otomatis di latar belakang tanpa mengganggu layar
+task.spawn(function()
+    while true do
+        TriggerCatchSilent()
+        task.wait(3) -- Jeda 3 detik per siklus tembak
+    end
+end)
