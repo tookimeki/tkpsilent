@@ -1,12 +1,11 @@
 -- ==========================================
--- TOOKIMEKI SILENT FARM v9 (ANTI-SPAM COOLDOWN)
+-- TOOKIMEKI SILENT FARM v10 (VERSION SYNC FIX)
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -45,7 +44,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(0, 200, 0, 20)
 Title.Position = UDim2.new(0, 35, 0, 10)
 Title.BackgroundTransparency = 1
-Title.Text = "Silent Farm v9 - by tookimeki"
+Title.Text = "Silent Farm v10 - by tookimeki"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
@@ -104,7 +103,7 @@ local LogText = Instance.new("TextLabel")
 LogText.Size = UDim2.new(1, -10, 1, 0)
 LogText.Position = UDim2.new(0, 5, 0, 0)
 LogText.BackgroundTransparency = 1
-LogText.Text = "[System]: Mesin v9 dengan Cooldown aktif...\n"
+LogText.Text = "[System]: Mesin v10 berhasil dimuat...\n"
 LogText.TextColor3 = Color3.fromRGB(46, 204, 113)
 LogText.Font = Enum.Font.Code
 LogText.TextSize = 11
@@ -235,7 +234,7 @@ MinBtn.MouseButton1Click:Connect(function() task.spawn(MinimizeGUI) end)
 CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
 -- ==========================================
--- 3. MESIN SILENT FARM v9 (COOLDOWN HANDLER)
+-- 3. MESIN SILENT FARM v10 (FIXED COOLDOWN & SYNC)
 -- ==========================================
 local silentFarmActive = false
 
@@ -254,12 +253,11 @@ end
 
 task.spawn(function()
     while true do
-        -- Jeda diperpanjang menjadi 5 detik agar melewati batas cooldown server ("Terlalu cepat")
-        task.wait(5.0) 
+        -- Jeda diperpanjang menjadi 6 detik agar terhindar dari pesan "Terlalu cepat"
+        task.wait(6.0) 
         
         if silentFarmActive then
             pcall(function()
-                -- Pastikan alat jaring dipegang karakter
                 local character = LocalPlayer.Character
                 if character then
                     local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -278,10 +276,10 @@ task.spawn(function()
                     end)
                     
                     if success and type(catchData) == "table" and catchData.token then
-                        Log("Token Didapat: " .. tostring(catchData.animalName))
+                        Log("Token v10 OK: " .. tostring(catchData.animalName))
                         
-                        -- Beri jeda 1 detik penuh untuk mensimulasikan durasi minigame yang wajar
-                        task.wait(1.0)
+                        -- Jeda natural meniru durasi minigame
+                        task.wait(1.5)
                         
                         local redeemSuccess, redeemResult = pcall(function()
                             return redeemCatchRF:InvokeServer(catchData.token, true)
@@ -291,7 +289,7 @@ task.spawn(function()
                             if redeemResult.ok then
                                 Log("SUCCESS: Berhasil menangkap " .. tostring(catchData.animalName))
                             else
-                                Log("Ditolak Redeem: " .. tostring(redeemResult.message))
+                                Log("Ditolak Server: " .. tostring(redeemResult.message))
                             end
                         end
                     else
@@ -311,13 +309,13 @@ ToggleBtn.MouseButton1Click:Connect(function()
         ToggleBtn.Text = "SILENT FARM: ON"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
         StatusDot.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
-        Log("Silent Farm v9 diaktifkan.")
+        Log("Silent Farm v10 diaktifkan.")
     else
         ToggleBtn.Text = "SILENT FARM: OFF"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         StatusDot.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        Log("Silent Farm v9 dimatikan.")
+        Log("Silent Farm v10 dimatikan.")
     end
 end)
 
-print("Tookimeki Silent Farm v9 Berhasil Dimuat!")
+print("Tookimeki Silent Farm v10 Berhasil Dimuat!")
