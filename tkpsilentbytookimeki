@@ -1,11 +1,12 @@
 -- ==========================================
--- TOOKIMEKI SILENT FARM v6 (AUTO-EQUIP SYNC)
+-- TOOKIMEKI SILENT FARM v7 (WORKSPACE ENTITY DETECTOR)
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -44,7 +45,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(0, 200, 0, 20)
 Title.Position = UDim2.new(0, 35, 0, 10)
 Title.BackgroundTransparency = 1
-Title.Text = "Silent Farm v6 - by tookimeki"
+Title.Text = "Silent Farm v7 - by tookimeki"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
@@ -103,7 +104,7 @@ local LogText = Instance.new("TextLabel")
 LogText.Size = UDim2.new(1, -10, 1, 0)
 LogText.Position = UDim2.new(0, 5, 0, 0)
 LogText.BackgroundTransparency = 1
-LogText.Text = "[System]: Siap menguji Auto-Equip Sync...\n"
+LogText.Text = "[System]: Memuat mesin v7...\n"
 LogText.TextColor3 = Color3.fromRGB(46, 204, 113)
 LogText.Font = Enum.Font.Code
 LogText.TextSize = 11
@@ -234,7 +235,7 @@ MinBtn.MouseButton1Click:Connect(function() task.spawn(MinimizeGUI) end)
 CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
 -- ==========================================
--- 3. MESIN SILENT FARM v6 (AUTO-EQUIP + SYNC)
+-- 3. MESIN SILENT FARM v7 (ENTITY DETECTOR)
 -- ==========================================
 local silentFarmActive = false
 
@@ -251,22 +252,44 @@ local function GetKnitRemote(remoteName)
     return foundRemote
 end
 
+-- Fungsi mencari objek hewan terdekat di Workspace
+local function FindNearestAnimal()
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+    
+    local hrp = character.HumanoidRootPart
+    local nearestObj = nil
+    local shortestDist = 35 -- Radius jangkauan tangkap dalam stud
+    
+    for _, obj in ipairs(Workspace:GetChildren()) do
+        -- Mencari berdasarkan nama hewan umum atau bagian model
+        if obj:IsA("Model") and (obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart) then
+            local part = obj.PrimaryPart or obj:FindFirstChild("HumanoidRootPart")
+            if part then
+                local dist = (part.Position - hrp.Position).Magnitude
+                if dist < shortestDist then
+                    shortestDist = dist
+                    nearestObj = obj
+                end
+            end
+        end
+    end
+    return nearestObj
+end
+
 task.spawn(function()
     while true do
-        task.wait(2.5)
+        task.wait(2)
         
         if silentFarmActive then
             pcall(function()
-                -- A. Paksa Karakter Memegang Jaring Terlebih Dahulu
+                -- 1. Pastikan jaring dipegang
                 local character = LocalPlayer.Character
                 if character then
                     local humanoid = character:FindFirstChildOfClass("Humanoid")
                     local jaring = LocalPlayer.Backpack:FindFirstChild("Jaring") or character:FindFirstChild("Jaring")
                     if jaring and jaring.Parent ~= character then
-                        if humanoid then 
-                            humanoid:EquipTool(jaring) 
-                            task.wait(0.2)
-                        end
+                        if humanoid then humanoid:EquipTool(jaring) end
                     end
                 end
                 
@@ -274,43 +297,45 @@ task.spawn(function()
                 local redeemCatchRF = GetKnitRemote("RedeemCatch")
                 
                 if beginCatchRF and redeemCatchRF then
-                    -- B. Panggil BeginCatch dan Tangkap Seluruh Respon Mentah
-                    local success, catchData = pcall(function()
-                        return beginCatchRF:InvokeServer()
-                    end)
+                    -- 2. Deteksi apakah ada hewan di dekat karakter
+                    local targetAnimal = FindNearestAnimal()
                     
-                    if success then
-                        if type(catchData) == "table" and catchData.token then
-                            Log("Token OK: " .. tostring(catchData.animalName))
-                            
-                            task.wait(0.1)
+                    if targetAnimal then
+                        Log("Target terdeteksi: " .. targetAnimal.Name)
+                        
+                        -- Kirim argumen objek hewan ke BeginCatch jika server memerlukannya
+                        local success, catchData = pcall(function()
+                            return beginCatchRF:InvokeServer(targetAnimal)
+                        end)
+                        
+                        if success and type(catchData) == "table" and catchData.token then
+                            Log("Token didapat untuk: " .. tostring(catchData.animalName))
+                            task.wait(0.2)
                             
                             local redeemSuccess, redeemResult = pcall(function()
                                 return redeemCatchRF:InvokeServer(catchData.token, true)
                             end)
                             
-                            if redeemSuccess and redeemResult then
-                                if type(redeemResult) == "table" then
-                                    if redeemResult.ok then
-                                        Log("SUCCESS: " .. tostring(redeemResult.message))
-                                    else
-                                        Log("Server Denied: " .. tostring(redeemResult.message))
-                                    end
-                                else
-                                    Log("Redeem Result: " .. tostring(redeemResult))
-                                end
+                            if redeemSuccess and redeemResult and redeemResult.ok then
+                                Log("SUCCESS: " .. tostring(redeemResult.message))
                             else
-                                Log("Gagal Redeem token ke server.")
+                                Log("Redeem Ditolak Server.")
                             end
                         else
-                            -- Cetak isi data mentah jika formatnya berbeda
-                            Log("Server Respon: " .. tostring(catchData))
+                            -- Coba panggil tanpa argumen jika gagal dengan objek
+                            local success2, catchData2 = pcall(function()
+                                return beginCatchRF:InvokeServer()
+                            end)
+                            if success2 and type(catchData2) == "table" and catchData2.token then
+                                redeemCatchRF:InvokeServer(catchData2.token, true)
+                                Log("SUCCESS (Fallback): " .. tostring(catchData2.animalName))
+                            end
                         end
                     else
-                        Log("Invoke BeginCatch Error.")
+                        Log("Mendekati area spawn (Tidak ada hewan dalam radius 35m)...")
                     end
                 else
-                    Log("Mencari Knit Comm...")
+                    Log("Mencari jalur Knit Comm...")
                 end
             end)
         end
@@ -323,13 +348,13 @@ ToggleBtn.MouseButton1Click:Connect(function()
         ToggleBtn.Text = "SILENT FARM: ON"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
         StatusDot.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
-        Log("Silent Farm v6 diaktifkan.")
+        Log("Silent Farm v7 diaktifkan.")
     else
         ToggleBtn.Text = "SILENT FARM: OFF"
         ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         StatusDot.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        Log("Silent Farm v6 dimatikan.")
+        Log("Silent Farm v7 dimatikan.")
     end
 end)
 
-print("Tookimeki Silent Farm v6 Berhasil Dimuat!")
+print("Tookimeki Silent Farm v7 Berhasil Dimuat!")
