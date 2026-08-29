@@ -1,22 +1,20 @@
 -- ==========================================
--- TOOKIMEKI SILENT HEADLESS FARM v3 (GUI + KNIT ENGINE)
+-- TOOKIMEKI SILENT FARM v5 (TOKEN SYNC ENGINE)
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local StarterGui = game:GetService("StarterGui")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Mencegah duplikasi GUI jika skrip dijalankan ulang
 if CoreGui:FindFirstChild("TookimekiSilentFarm") then
     CoreGui.TookimekiSilentFarm:Destroy()
 end
 
 -- ==========================================
--- 1. MEMBANGUN UI PANEL KONTROL PREMIUM
+-- 1. MEMBANGUN UI PANEL KONTROL + TERMINAL LOG
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "TookimekiSilentFarm"
@@ -24,9 +22,9 @@ ScreenGui.IgnoreGuiInset = true
 ScreenGui.Parent = CoreGui
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 310, 0, 120)
+MainFrame.Size = UDim2.new(0, 320, 0, 205)
 MainFrame.AnchorPoint = Vector2.new(1, 0.5) 
-MainFrame.Position = UDim2.new(0.5, 155, 0.5, 0)
+MainFrame.Position = UDim2.new(0.5, 160, 0.5, -40)
 MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
 MainFrame.BackgroundTransparency = 0.1
 MainFrame.BorderSizePixel = 0
@@ -35,11 +33,10 @@ MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
--- Indikator Status Titik Hijau/Merah
 local StatusDot = Instance.new("Frame")
 StatusDot.Size = UDim2.new(0, 10, 0, 10)
 StatusDot.Position = UDim2.new(0, 15, 0, 15)
-StatusDot.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Default Merah (OFF)
+StatusDot.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 StatusDot.Parent = MainFrame
 Instance.new("UICorner", StatusDot).CornerRadius = UDim.new(1, 0)
 
@@ -47,7 +44,7 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(0, 200, 0, 20)
 Title.Position = UDim2.new(0, 35, 0, 10)
 Title.BackgroundTransparency = 1
-Title.Text = "Silent Farm - by tookimeki"
+Title.Text = "Silent Farm v5 - by tookimeki"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
@@ -84,8 +81,8 @@ Separator.Parent = MainFrame
 
 -- Tombol Toggle Utama (ON/OFF)
 local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Size = UDim2.new(1, -30, 0, 45)
-ToggleBtn.Position = UDim2.new(0, 15, 0, 55)
+ToggleBtn.Size = UDim2.new(1, -30, 0, 40)
+ToggleBtn.Position = UDim2.new(0, 15, 0, 50)
 ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 ToggleBtn.Text = "SILENT FARM: OFF"
 ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -94,7 +91,36 @@ ToggleBtn.TextSize = 14
 ToggleBtn.Parent = MainFrame
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
 
--- Tombol Mengapung (Floating Open Button) Saat Diminimalkan
+-- Konsol Log Terminal di dalam GUI
+local LogBox = Instance.new("ScrollingFrame")
+LogBox.Size = UDim2.new(1, -30, 0, 85)
+LogBox.Position = UDim2.new(0, 15, 0, 105)
+LogBox.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+LogBox.BorderSizePixel = 0
+LogBox.CanvasSize = UDim2.new(0, 0, 3, 0)
+LogBox.Parent = MainFrame
+Instance.new("UICorner", LogBox).CornerRadius = UDim.new(0, 6)
+
+local LogText = Instance.new("TextLabel")
+LogText.Size = UDim2.new(1, -10, 1, 0)
+LogText.Position = UDim2.new(0, 5, 0, 0)
+LogText.BackgroundTransparency = 1
+LogText.Text = "[System]: Siap memuat Knit Comm...\n"
+LogText.TextColor3 = Color3.fromRGB(46, 204, 113)
+LogText.Font = Enum.Font.Code
+LogText.TextSize = 11
+LogText.TextXAlignment = Enum.TextXAlignment.Left
+LogText.TextYAlignment = Enum.TextYAlignment.Top
+LogText.TextWrapped = true
+LogText.Parent = LogBox
+
+local function Log(msg)
+    print(msg)
+    LogText.Text = LogText.Text .. "\n> " .. msg
+    LogBox.CanvasPosition = Vector2.new(0, LogText.AbsoluteSize.Y)
+end
+
+-- Tombol Mengapung (Floating Open Button)
 local OpenBtn = Instance.new("ImageButton")
 OpenBtn.Size = UDim2.new(0, 0, 0, 0) 
 OpenBtn.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -108,15 +134,12 @@ OpenBtn.Parent = ScreenGui
 Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 8)
 
 -- ==========================================
--- 2. SISTEM CUSTOM DRAG (Bisa Digeser)
+-- 2. SISTEM DRAG & MINIMIZE
 -- ==========================================
 local function MakeDraggable(guiObject)
     local dragging, dragInput, dragStart, startPos
     guiObject.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            if guiObject == MainFrame and ToggleBtn.AbsolutePosition then 
-                -- Biarkan tombol tetap bisa ditekan tanpa memicu drag berlebihan
-            end
             dragging = true
             dragStart = input.Position
             startPos = guiObject.Position 
@@ -151,9 +174,6 @@ end
 MakeDraggable(MainFrame)
 MakeDraggable(OpenBtn)
 
--- ==========================================
--- 3. ANIMASI MINIMIZE & MAXIMIZE
--- ==========================================
 local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 local isAnimating = false
 
@@ -164,8 +184,8 @@ local function MaximizeGUI()
     local targetY = OpenBtn.Position.Y.Offset + 50
     local viewport = workspace.CurrentCamera.ViewportSize
     if viewport.X > 0 and viewport.Y > 0 then
-        targetX = math.clamp(targetX, 310, viewport.X)
-        targetY = math.clamp(targetY, 60, viewport.Y - 60)
+        targetX = math.clamp(targetX, 320, viewport.X)
+        targetY = math.clamp(targetY, 100, viewport.Y - 100)
     end
     TweenService:Create(OpenBtn, tweenInfo, {Size = UDim2.new(0, 0, 0, 0)}):Play()
     task.wait(0.3)
@@ -173,7 +193,7 @@ local function MaximizeGUI()
     MainFrame.Size = UDim2.new(0, 0, 0, 0)
     MainFrame.Position = UDim2.new(0, targetX, 0, targetY)
     MainFrame.Visible = true
-    TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 310, 0, 120)}):Play()
+    TweenService:Create(MainFrame, tweenInfo, {Size = UDim2.new(0, 320, 0, 205)}):Play()
     task.wait(0.3)
     isAnimating = false
 end
@@ -192,7 +212,7 @@ local function MinimizeGUI()
     OpenBtn.Position = targetPos
     OpenBtn.Size = UDim2.new(0, 0, 0, 0)
     OpenBtn.Visible = true
-    TweenService:Create(OpenBtn, tweenInfo, {Size = UDim2.new(0, 35, 0, 35)}):Play()
+    TweenService:Create(OpenBtn, twig or tweenInfo, {Size = UDim2.new(0, 35, 0, 35)}):Play()
     task.wait(0.3)
     isAnimating = false
 end
@@ -214,16 +234,13 @@ OpenBtn.InputEnded:Connect(function(input)
     end
 end)
 MinBtn.MouseButton1Click:Connect(function() task.spawn(MinimizeGUI) end)
-CloseBtn.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
-end)
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
 -- ==========================================
--- 4. MESIN SILENT HEADLESS FARM (KNIT COMM)
+-- 3. MESIN SILENT FARM v5 (TOKEN SYNC)
 -- ==========================================
 local silentFarmActive = false
 
--- Fungsi pencari jalur Knit Remote secara dinamis
 local function GetKnitRemote(remoteName)
     local foundRemote = nil
     pcall(function()
@@ -237,10 +254,9 @@ local function GetKnitRemote(remoteName)
     return foundRemote
 end
 
--- Loop Utama di Latar Belakang (Hanya berjalan jika Toggle ON)
 task.spawn(function()
     while true do
-        task.wait(3.5) -- Jeda aman antar siklus tangkap
+        task.wait(2.5) -- Jeda antar siklus
         
         if silentFarmActive then
             pcall(function()
@@ -248,44 +264,55 @@ task.spawn(function()
                 local redeemCatchRF = GetKnitRemote("RedeemCatch")
                 
                 if beginCatchRF and redeemCatchRF then
-                    -- 1. Minta Token Tangkap ke Server secara gaib
+                    -- 1. Meminta token validasi ke server
                     local success, catchData = pcall(function()
                         return beginCatchRF:InvokeServer()
                     end)
                     
-                    if success and catchData and catchData.token then
-                        -- Beri jeda singkat menyerupai durasi tangkap alami
-                        task.wait(0.3)
+                    if success and catchData and catchData.ok and catchData.token then
+                        Log("Target: " .. tostring(catchData.animalName) .. " [Token OK]")
                         
-                        -- 2. Kirim kembali token konfirmasi ke Server
+                        -- Beri jeda sangat singkat agar natural di mata server
+                        task.wait(0.1)
+                        
+                        -- 2. Menukarkan token ke server (Sesuai struktur Argumen dari Cobalt)
                         local redeemSuccess, redeemResult = pcall(function()
                             return redeemCatchRF:InvokeServer(catchData.token, true)
                         end)
                         
-                        if redeemSuccess and redeemResult and redeemResult.ok then
-                            print("[Silent Farm]: Berhasil mendapatkan " .. tostring(redeemResult.message))
+                        if redeemSuccess and redeemResult then
+                            if redeemResult.ok then
+                                Log("SUCCESS: " .. tostring(redeemResult.message))
+                            else
+                                Log("Server Denied: " .. tostring(redeemResult.message))
+                            end
+                        else
+                            Log("Gagal mengeksekusi RedeemCatch.")
                         end
+                    else
+                        Log("Menunggu hewan muncul/Validasi server...")
                     end
+                else
+                    Log("Mencari jalur Knit Comm...")
                 end
             end)
         end
     end
 end)
 
--- Kontrol Tombol Toggle UI
 ToggleBtn.MouseButton1Click:Connect(function()
     silentFarmActive = not silentFarmActive
     if silentFarmActive then
         ToggleBtn.Text = "SILENT FARM: ON"
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113) -- Hijau
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
         StatusDot.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
-        print("Silent Farm diaktifkan.")
+        Log("Silent Farm v5 diaktifkan.")
     else
         ToggleBtn.Text = "SILENT FARM: OFF"
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Merah
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         StatusDot.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        print("Silent Farm dimatikan.")
+        Log("Silent Farm v5 dimatikan.")
     end
 end)
 
-print("Tookimeki Silent Farm v3 (GUI Panel) Berhasil Dimuat!")
+print("Tookimeki Silent Farm v5 Berhasil Dimuat!")
